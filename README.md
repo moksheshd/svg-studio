@@ -1,15 +1,14 @@
 # React Three.js Project
 
-A modern React application with Three.js integration, built with Vite and TypeScript.
+A modern React application with native Three.js integration, built with Vite and TypeScript.
 
 ## 🚀 Features
 
 - **React 19.1** - Latest React version with modern features
-- **Three.js 0.179.1** - 3D graphics library
-- **@react-three/fiber** - React renderer for Three.js
-- **@react-three/drei** - Useful helpers for react-three-fiber
+- **Three.js 0.179.1** - Native 3D graphics library integration
 - **TypeScript** - Type safety and better development experience
 - **Vite** - Fast build tool and development server
+- **Native Three.js** - Direct Three.js implementation without abstractions
 
 ## 📦 Installation
 
@@ -29,19 +28,20 @@ yarn preview
 
 ## 🎯 Development
 
-The development server runs on `http://localhost:3000` and includes:
+The development server runs on `http://localhost:5173` and includes:
 
 - Hot module replacement
 - TypeScript support
 - Interactive 3D scene with rotating cubes
-- Orbit controls for camera manipulation
+- Custom orbit controls implementation
+- Mouse interaction with raycasting
 
 ## 🏗️ Project Structure
 
 ```
 ├── public/          # Static assets
 ├── src/
-│   ├── App.tsx      # Main application component with Three.js scene
+│   ├── App.tsx      # Main application component with native Three.js scene
 │   ├── App.css      # Application styles
 │   ├── main.tsx     # Application entry point
 │   └── index.css    # Global styles
@@ -55,19 +55,29 @@ The development server runs on `http://localhost:3000` and includes:
 ## 🎮 Interactive Demo
 
 The default scene includes:
-- Two rotating orange cubes
-- Interactive orbit controls (mouse to rotate, scroll to zoom)
-- Hover effects (cubes turn pink on hover)
-- Click to scale cubes
+- Two rotating orange cubes with native Three.js animation loop
+- Custom orbit controls (right-click and drag to rotate camera)
+- Hover effects with raycasting (cubes turn pink on hover)
+- Click interaction to scale cubes
+- Proper cleanup and memory management
 
 ## 🛠️ Technologies
 
 - **React 19.1** - UI library
-- **Three.js 0.179.1** - 3D graphics
-- **@react-three/fiber 9.3.0** - React Three.js integration
-- **@react-three/drei 10.6.1** - Three.js helpers
+- **Three.js 0.179.1** - Native 3D graphics library
 - **TypeScript 5.9.2** - Type safety
 - **Vite 7.0.6** - Build tool
+
+## 🎨 Three.js Implementation
+
+This project uses native Three.js APIs directly:
+- `THREE.Scene` for 3D scene management
+- `THREE.WebGLRenderer` for rendering
+- `THREE.PerspectiveCamera` for camera controls
+- `THREE.Raycaster` for mouse interaction
+- Custom animation loop with `requestAnimationFrame`
+- Manual event handling for user interactions
+- Proper resource disposal and cleanup
 
 ## 📝 Git Information
 
