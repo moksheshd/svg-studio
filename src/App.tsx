@@ -76,14 +76,8 @@ function App() {
   }, [])
 
   return (
-    <div className="App">
-      <h1>Path Animation Tool</h1>
-      <div className="canvas-container">
-        <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
-      </div>
-      <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#666' }}>
-        Ready to build path animation tool
-      </p>
+    <div className="App" style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden' }}>
+      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
     </div>
   )
 }
