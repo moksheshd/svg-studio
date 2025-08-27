@@ -33,7 +33,6 @@ This document tracks all completed phases and tasks, preserving lessons learned 
 - Phase-based approach aligns documentation with actual development workflow
 
 #### Files Created
-- `docs/README.md` - Project overview and quick start
 - `docs/ROADMAP.md` - High-level phases and timeline
 - `docs/CURRENT_SPRINT.md` - Active Phase 1 work
 - `docs/phases/PHASE_1_SVG_IMPORT.md` - Detailed Phase 1 specifications

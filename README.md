@@ -1,16 +1,12 @@
-# React Three.js Project
+# SVG Studio
 
-A modern React application with native Three.js integration, built with Vite and TypeScript.
+A pure SVG animation tool built with React, Three.js, and GSAP. Import existing SVG files and bring them to life with animations and effects.
 
-## 🚀 Features
+## 🎯 Project Vision
 
-- **React 19.1** - Latest React version with modern features
-- **Three.js 0.179.1** - Native 3D graphics library integration
-- **TypeScript** - Type safety and better development experience
-- **Vite** - Fast build tool and development server
-- **Native Three.js** - Direct Three.js implementation without abstractions
+SVG Studio is focused on **animation, not editing**. Users import their existing SVG artwork and add motion, effects, and timing to create engaging animated content. Think "After Effects for SVGs" - no drawing tools, just pure animation power.
 
-## 📦 Installation
+## 🚀 Quick Start
 
 ```bash
 # Install dependencies
@@ -26,73 +22,92 @@ yarn build
 yarn preview
 ```
 
-## 🎯 Development
+The development server runs on `http://localhost:3000` with hot module replacement.
 
-The development server runs on `http://localhost:5173` and includes:
+## 🏗️ Current Status
 
-- Hot module replacement
-- TypeScript support
-- Interactive 3D scene with rotating cubes
-- Custom orbit controls implementation
-- Mouse interaction with raycasting
+**Project Phase**: Planning and Foundation Complete  
+**Current Work**: Ready to begin Phase 1 - SVG Import & Display  
+**Next Milestone**: SVG file import and 2D workspace functionality
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed progress and [docs/CURRENT_SPRINT.md](docs/CURRENT_SPRINT.md) for active work.
+
+## 📁 Documentation
+
+### Project Planning & Progress
+- **[ROADMAP](docs/ROADMAP.md)** - High-level phases and timeline
+- **[CURRENT SPRINT](docs/CURRENT_SPRINT.md)** - Active work and immediate tasks
+- **[COMPLETED WORK](docs/COMPLETED.md)** - Archive of finished work
+
+### Development Resources
+- **[PHASE DETAILS](docs/phases/)** - Detailed phase specifications
+  - [Phase 1: SVG Import & Display](docs/phases/PHASE_1_SVG_IMPORT.md)
+  - [Phase 2: Animation Targeting](docs/phases/PHASE_2_ANIMATION_TARGETING.md)
+  - [Phase 3: Effects Library](docs/phases/PHASE_3_EFFECTS_LIBRARY.md)
+  - [Phase 4: Timeline & Controls](docs/phases/PHASE_4_TIMELINE_CONTROLS.md)
+- **[TECHNICAL NOTES](docs/TECHNICAL_NOTES.md)** - Implementation decisions and patterns
+
+### Future Planning
+- **[BACKLOG](docs/BACKLOG.md)** - Future ideas and research topics
+- **[GUIDELINES](docs/GUIDELINES.md)** - Documentation workflow and standards
+
+## 🛠️ Tech Stack
+
+- **React 19.1** - UI framework with modern features
+- **Three.js 0.179.1** - Native 3D graphics (no abstractions)
+- **GSAP 3.13.0** - Animation engine for smooth motion
+- **TypeScript 5.9.2** - Type safety and better DX
+- **Vite 7.0.6** - Fast build tool and dev server
+
+## 🎮 Planned Features
+
+### Core Functionality
+- **SVG Import** - Drag & drop SVG files into workspace
+- **Element Selection** - Click to select individual SVG elements
+- **Animation Effects** - Fade, slide, scale, rotate, and path animations
+- **Timeline Control** - Sequence and time animations precisely
+
+### Animation Types
+- **Entrance Effects** - Fade in, slide in, draw on, pop in
+- **Motion Effects** - Objects following SVG paths
+- **Transform Effects** - Scale, rotate, position animations
+- **Sequencing** - Chain animations with precise timing
 
 ## 🏗️ Project Structure
 
 ```
-├── public/          # Static assets
+├── docs/                # Comprehensive project documentation
+│   ├── phases/         # Detailed phase specifications
+│   └── *.md           # Core documentation files
+├── public/            # Static assets
 ├── src/
-│   ├── App.tsx      # Main application component with native Three.js scene
-│   ├── App.css      # Application styles
-│   ├── main.tsx     # Application entry point
-│   └── index.css    # Global styles
-├── index.html       # HTML template
-├── package.json     # Dependencies and scripts
-├── tsconfig.json    # TypeScript configuration
-├── vite.config.ts   # Vite configuration
-└── .gitignore       # Git ignore rules
+│   ├── App.tsx        # Main application component
+│   ├── App.css        # Application styles
+│   ├── main.tsx       # Application entry point
+│   └── index.css      # Global styles
+├── package.json       # Dependencies and scripts
+├── tsconfig.json      # TypeScript configuration
+└── vite.config.ts     # Vite configuration
 ```
 
-## 🎮 Interactive Demo
+## 🎯 Development Phases
 
-The default scene includes:
-- Two rotating orange cubes with native Three.js animation loop
-- Custom orbit controls (right-click and drag to rotate camera)
-- Hover effects with raycasting (cubes turn pink on hover)
-- Click interaction to scale cubes
-- Proper cleanup and memory management
-
-## 🛠️ Technologies
-
-- **React 19.1** - UI library
-- **Three.js 0.179.1** - Native 3D graphics library
-- **TypeScript 5.9.2** - Type safety
-- **Vite 7.0.6** - Build tool
-
-## 🎨 Three.js Implementation
-
-This project uses native Three.js APIs directly:
-- `THREE.Scene` for 3D scene management
-- `THREE.WebGLRenderer` for rendering
-- `THREE.PerspectiveCamera` for camera controls
-- `THREE.Raycaster` for mouse interaction
-- Custom animation loop with `requestAnimationFrame`
-- Manual event handling for user interactions
-- Proper resource disposal and cleanup
-
-## 📝 Git Information
-
-- **Repository**: Initialized with git
-- **Author**: Mokshesh Dafariya <mokshesh@outlook.com>
-- **License**: MIT
+1. **Phase 1**: SVG Import & Display (Week 1)
+2. **Phase 2**: Animation Targeting (Week 2)
+3. **Phase 3**: Effects Library (Week 3)
+4. **Phase 4**: Timeline & Controls (Week 4)
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Read [docs/GUIDELINES.md](docs/GUIDELINES.md) for documentation standards
+2. Check [docs/CURRENT_SPRINT.md](docs/CURRENT_SPRINT.md) for active work
+3. Review [docs/ROADMAP.md](docs/ROADMAP.md) for project direction
+4. Follow the established phase-based development workflow
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+MIT License - see LICENSE file for details.
+
+## 👨‍💻 Author
+
+Mokshesh Dafariya <mokshesh@outlook.com>
