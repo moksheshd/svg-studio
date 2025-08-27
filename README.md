@@ -26,9 +26,9 @@ The development server runs on `http://localhost:3000` with hot module replaceme
 
 ## 🏗️ Current Status
 
-**Project Phase**: Planning and Foundation Complete  
-**Current Work**: Ready to begin Phase 1 - SVG Import & Display  
-**Next Milestone**: SVG file import and 2D workspace functionality
+**Project Phase**: Ready to Start Phase 0 - Demo MVP  
+**Current Work**: Building working demo with core path animation functionality  
+**Next Milestone**: Complete demo showing SVG import, resize, path drawing, and animation
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed progress and [docs/CURRENT_SPRINT.md](docs/CURRENT_SPRINT.md) for active work.
 
@@ -41,6 +41,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed progress and [docs/CURRENT_S
 
 ### Development Resources
 - **[PHASE DETAILS](docs/phases/)** - Detailed phase specifications
+  - [Phase 0: Demo MVP](docs/phases/PHASE_0_DEMO_MVP.md)
   - [Phase 1: SVG Import & Display](docs/phases/PHASE_1_SVG_IMPORT.md)
   - [Phase 2: Animation Targeting](docs/phases/PHASE_2_ANIMATION_TARGETING.md)
   - [Phase 3: Effects Library](docs/phases/PHASE_3_EFFECTS_LIBRARY.md)
@@ -92,6 +93,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed progress and [docs/CURRENT_S
 
 ## 🎯 Development Phases
 
+0. **Phase 0**: Demo MVP (Week 0) - NEW
 1. **Phase 1**: SVG Import & Display (Week 1)
 2. **Phase 2**: Animation Targeting (Week 2)
 3. **Phase 3**: Effects Library (Week 3)

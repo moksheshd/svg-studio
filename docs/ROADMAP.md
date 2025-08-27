@@ -4,10 +4,26 @@
 A pure SVG animation tool where users import existing SVG files and add motion, effects, and timing. No editing of SVG content - just animation layers on top.
 
 ## 📅 Timeline Overview
+- **Phase 0**: Demo MVP (Week 0) - NEW
 - **Phase 1**: SVG Import & Display (Week 1)
 - **Phase 2**: Animation Targeting (Week 2)  
 - **Phase 3**: Effects Library (Week 3)
 - **Phase 4**: Timeline & Controls (Week 4)
+
+---
+
+## ⏳ PHASE 0: Demo MVP (READY TO START)
+**Goal**: Create working demo with core path animation functionality  
+**Success Criteria**: User can import SVG, resize it, draw path, and animate along path  
+**Timeline**: Week 0 (5-7 days estimated)  
+**Details**: [docs/phases/PHASE_0_DEMO_MVP.md](phases/PHASE_0_DEMO_MVP.md)
+
+### Key Deliverables
+- Basic SVG import and display
+- Simple resize functionality
+- Path drawing tool (click to add points)
+- GSAP path following animation
+- Play/pause controls
 
 ---
 
@@ -68,23 +84,24 @@ A pure SVG animation tool where users import existing SVG files and add motion, 
 ---
 
 ## 📊 Progress Summary
-- **Total Phases**: 4
+- **Total Phases**: 5 (including Demo MVP)
 - **Completed**: 0
 - **In Progress**: 0
-- **Planned**: 4
-- **Estimated Timeline**: 4 weeks
+- **Planned**: 5
+- **Estimated Timeline**: 5 weeks (Demo + 4 development weeks)
 
 ## 🎯 Success Metrics
-- **Week 1**: Can import and view SVG files
+- **Week 0**: Working demo with SVG import, resize, path drawing, and animation
+- **Week 1**: Enhanced SVG import and workspace features
 - **Week 2**: Can select individual SVG elements
 - **Week 3**: Can apply animation effects
 - **Week 4**: Can control timing and sequencing
 
 ## 🔄 Next Steps
-1. Begin Phase 1: SVG Import & Display
+1. Begin Phase 0: Demo MVP
 2. Set up orthographic camera and basic scene
-3. Implement SVG file import functionality
-4. Create workspace navigation controls
+3. Implement basic SVG import functionality
+4. Create path drawing and animation system
 
 ---
 
