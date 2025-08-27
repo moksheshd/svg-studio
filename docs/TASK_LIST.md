@@ -30,10 +30,20 @@ Building a plugin-based SVG Studio using React + Three.js + GSAP. A extensible p
   - Define core API that plugins can access
   - Set up plugin sandboxing and security model
 
+- [ ] **Implement hybrid state management architecture**
+  - Build CanvasStateManager for high-performance Three.js object state
+  - Create PluginStateManager for plugin-to-plugin communication
+  - Implement UIStateManager using React state for UI components
+  - Design StateBridge for selective synchronization between state layers
+  - Add performance monitoring for state updates and FPS tracking
+  - Implement event-driven updates without React re-render overhead
+  - Create state isolation system to prevent plugin interference
+  - Add memory-efficient object pooling for canvas objects
+
 - [ ] **Create core engine foundation**
   - Build Canvas Manager (Three.js scene, camera, rendering pipeline)
   - Implement Event System (unified event handling across plugins)
-  - Create State Manager (global application state)
+  - Integrate with hybrid state management system
   - Set up Resource Manager (assets, textures, geometries)
   - Build Performance Monitor (FPS, memory usage tracking)
 
@@ -223,7 +233,7 @@ src/
 - Resource pooling for graphics objects
 - Optimized rendering pipeline for smooth interactions
 
-## Progress: 3/18 tasks completed (17%)
+## Progress: 3/19 tasks completed (16%)
 
 ## Next Steps
 1. Design comprehensive plugin architecture
