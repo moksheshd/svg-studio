@@ -3,6 +3,7 @@ import './App.css'
 import { SceneManager } from './core/SceneManager'
 import { SVGProcessor } from './core/SVGProcessor'
 import { ResizeHandles } from './components/ResizeHandles'
+import { PathDrawingTool } from './components/PathDrawingTool'
 import * as THREE from 'three'
 
 function App() {
@@ -10,6 +11,7 @@ function App() {
   const sceneManagerRef = useRef<SceneManager | null>(null)
   const svgProcessorRef = useRef<SVGProcessor | null>(null)
   const resizeHandlesRef = useRef<ResizeHandles | null>(null)
+  const pathDrawingToolRef = useRef<PathDrawingTool | null>(null)
   const frameIdRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster())
@@ -22,6 +24,8 @@ function App() {
   const [loadedSVG, setLoadedSVG] = useState<string | null>(null)
   const [isResizing, setIsResizing] = useState(false)
   const [isSelected, setIsSelected] = useState(false)
+  const [isPathMode, setIsPathMode] = useState(false)
+  const [isDraggingPoint, setIsDraggingPoint] = useState(false)
   
   // Camera control states
   const isPanningRef = useRef<boolean>(false)
@@ -30,6 +34,9 @@ function App() {
   // Store selected state in a ref to avoid stale closures
   const isSelectedRef = useRef(false)
   const isResizingRef = useRef(false)
+  const isPathModeRef = useRef(false)
+  const isDraggingPointRef = useRef(false)
+  const draggedPointRef = useRef<THREE.Mesh | null>(null)
   
   // Update refs when state changes
   useEffect(() => {
@@ -39,10 +46,18 @@ function App() {
   useEffect(() => {
     isResizingRef.current = isResizing
   }, [isResizing])
+  
+  useEffect(() => {
+    isPathModeRef.current = isPathMode
+  }, [isPathMode])
+  
+  useEffect(() => {
+    isDraggingPointRef.current = isDraggingPoint
+  }, [isDraggingPoint])
 
   // Mouse handlers (defined outside useEffect to avoid stale closures)
   const handleMouseDown = useCallback((event: MouseEvent) => {
-    if (!sceneManagerRef.current || !resizeHandlesRef.current) return
+    if (!sceneManagerRef.current || !resizeHandlesRef.current || !pathDrawingToolRef.current) return
     
     const canvas = sceneManagerRef.current.renderer.domElement
     const rect = canvas.getBoundingClientRect()
@@ -53,8 +68,32 @@ function App() {
     if (event.button === 0) {
       raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
       
-      // First check if clicking on resize handles (if selected)
-      if (isSelectedRef.current) {
+      // Path drawing mode
+      if (isPathModeRef.current) {
+        // Check if clicking on existing path point
+        const pathPoints = pathDrawingToolRef.current.getPoints()
+        const pointMeshes = pathPoints.map(p => p.mesh)
+        const pointIntersects = raycasterRef.current.intersectObjects(pointMeshes, false)
+        
+        if (pointIntersects.length > 0) {
+          // Start dragging the point
+          const pointMesh = pointIntersects[0].object as THREE.Mesh
+          draggedPointRef.current = pointMesh
+          setIsDraggingPoint(true)
+          return
+        }
+        
+        // Otherwise, add a new point at click location
+        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
+        const worldPos = new THREE.Vector3()
+        raycasterRef.current.ray.intersectPlane(plane, worldPos)
+        
+        pathDrawingToolRef.current.addPoint(new THREE.Vector2(worldPos.x, worldPos.y))
+        return
+      }
+      
+      // First check if clicking on resize handles (if selected and not in path mode)
+      if (isSelectedRef.current && !isPathModeRef.current) {
         const handles = resizeHandlesRef.current.getHandles()
         const handleIntersects = raycasterRef.current.intersectObjects(handles, false)
         
@@ -110,21 +149,53 @@ function App() {
       }
     }
     
-    // Right click for pan
+    // Right click
     if (event.button === 2) {
       event.preventDefault()
+      
+      // In path mode, right-click removes points
+      if (isPathModeRef.current) {
+        raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+        const pathPoints = pathDrawingToolRef.current.getPoints()
+        const pointMeshes = pathPoints.map(p => p.mesh)
+        const pointIntersects = raycasterRef.current.intersectObjects(pointMeshes, false)
+        
+        if (pointIntersects.length > 0) {
+          // Remove the clicked point
+          const pointMesh = pointIntersects[0].object as THREE.Mesh
+          pathDrawingToolRef.current.removePoint(pointMesh)
+          return
+        }
+      }
+      
+      // Otherwise, use right-click for panning
       isPanningRef.current = true
       panStartRef.current = { x: event.clientX, y: event.clientY }
     }
   }, [])
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!sceneManagerRef.current) return
+    if (!sceneManagerRef.current || !pathDrawingToolRef.current) return
     
     const canvas = sceneManagerRef.current.renderer.domElement
     const rect = canvas.getBoundingClientRect()
     mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
     mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    
+    // Handle path point dragging
+    if (isDraggingPointRef.current && draggedPointRef.current) {
+      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
+      raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+      
+      const worldPos = new THREE.Vector3()
+      raycasterRef.current.ray.intersectPlane(plane, worldPos)
+      
+      pathDrawingToolRef.current.movePoint(
+        draggedPointRef.current,
+        new THREE.Vector2(worldPos.x, worldPos.y)
+      )
+      return
+    }
     
     // Handle resize dragging
     if (isResizingRef.current && resizeHandlesRef.current) {
@@ -156,8 +227,26 @@ function App() {
       return
     }
     
-    // Highlight resize handles on hover (only if selected)
-    if (isSelectedRef.current && resizeHandlesRef.current && !isResizingRef.current && !isPanningRef.current) {
+    // Highlight path points on hover (in path mode)
+    if (isPathModeRef.current && !isDraggingPointRef.current && !isPanningRef.current) {
+      raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+      const pathPoints = pathDrawingToolRef.current.getPoints()
+      const pointMeshes = pathPoints.map(p => p.mesh)
+      const intersects = raycasterRef.current.intersectObjects(pointMeshes, false)
+      
+      if (intersects.length > 0) {
+        const pointMesh = intersects[0].object as THREE.Mesh
+        pathDrawingToolRef.current.highlightPoint(pointMesh)
+        canvas.style.cursor = pathDrawingToolRef.current.getHoverCursor(pointMesh) || 'pointer'
+      } else {
+        pathDrawingToolRef.current.highlightPoint(null)
+        canvas.style.cursor = isPathModeRef.current ? 'crosshair' : 'default'
+      }
+      return
+    }
+    
+    // Highlight resize handles on hover (only if selected and not in path mode)
+    if (isSelectedRef.current && resizeHandlesRef.current && !isResizingRef.current && !isPanningRef.current && !isPathModeRef.current) {
       raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
       const handles = resizeHandlesRef.current.getHandles()
       const intersects = raycasterRef.current.intersectObjects(handles, false)
@@ -175,6 +264,13 @@ function App() {
 
   const handleMouseUp = useCallback(() => {
     isPanningRef.current = false
+    
+    if (isDraggingPointRef.current) {
+      draggedPointRef.current = null
+      setIsDraggingPoint(false)
+      const canvas = sceneManagerRef.current?.renderer.domElement
+      if (canvas) canvas.style.cursor = isPathModeRef.current ? 'crosshair' : 'default'
+    }
     
     if (isResizingRef.current && resizeHandlesRef.current) {
       resizeHandlesRef.current.endResize()
@@ -198,10 +294,16 @@ function App() {
     const resizeHandles = new ResizeHandles()
     resizeHandlesRef.current = resizeHandles
     
+    const pathDrawingTool = new PathDrawingTool()
+    pathDrawingToolRef.current = pathDrawingTool
+    
     // Add resize handles to the scene
     resizeHandles.getHandles().forEach(handle => {
       sceneManager.handleGroup.add(handle)
     })
+    
+    // Add path drawing group to the scene
+    sceneManager.scene.add(pathDrawingTool.getPathGroup())
 
     // Animation loop
     const animate = () => {
@@ -255,6 +357,7 @@ function App() {
       window.removeEventListener('resize', handleResize)
       
       sceneManager.dispose()
+      pathDrawingToolRef.current?.dispose()
     }
   }, [handleMouseDown, handleMouseMove, handleMouseUp])
 
@@ -348,6 +451,45 @@ function App() {
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click()
   }, [])
+  
+  // Toggle path drawing mode
+  const togglePathMode = useCallback(() => {
+    if (!pathDrawingToolRef.current) return
+    
+    const newPathMode = !isPathMode
+    setIsPathMode(newPathMode)
+    
+    if (newPathMode) {
+      // Entering path mode - deselect SVG if selected
+      if (isSelected && resizeHandlesRef.current) {
+        resizeHandlesRef.current.detach()
+        const boundingBoxLines = resizeHandlesRef.current.getBoundingBoxLines()
+        if (boundingBoxLines && boundingBoxLines.parent && sceneManagerRef.current) {
+          sceneManagerRef.current.handleGroup.remove(boundingBoxLines)
+        }
+        setIsSelected(false)
+      }
+      
+      pathDrawingToolRef.current.activate()
+      
+      // Update cursor
+      const canvas = sceneManagerRef.current?.renderer.domElement
+      if (canvas) canvas.style.cursor = 'crosshair'
+    } else {
+      // Exiting path mode
+      pathDrawingToolRef.current.deactivate()
+      
+      // Reset cursor
+      const canvas = sceneManagerRef.current?.renderer.domElement
+      if (canvas) canvas.style.cursor = 'default'
+    }
+  }, [isPathMode, isSelected])
+  
+  // Clear the current path
+  const clearPath = useCallback(() => {
+    if (!pathDrawingToolRef.current) return
+    pathDrawingToolRef.current.clearPath()
+  }, [])
 
   return (
     <div 
@@ -437,41 +579,98 @@ function App() {
             <>
               <div>Loaded: {loadedSVG}</div>
               <div style={{ fontSize: '11px', marginTop: '4px', color: '#888' }}>
-                {isSelected ? 
-                  'Drag corners to resize • Hold Shift for free resize • Click outside to deselect' : 
-                  'Click on SVG to select and resize'}
+                {isPathMode ? 
+                  'Click to add path points • Drag points to move • Right-click to remove' :
+                  isSelected ? 
+                    'Drag corners to resize • Hold Shift for free resize • Click outside to deselect' : 
+                    'Click on SVG to select and resize'}
               </div>
             </>
           )}
           {!loadedSVG && <div>Drag & drop an SVG file or click upload</div>}
         </div>
         
-        {/* Upload Button */}
-        <button
-          onClick={handleUploadClick}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#4a90e2',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '5px'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#357abd'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#4a90e2'
-          }}
-        >
-          <span style={{ fontSize: '18px' }}>+</span> Upload SVG
-        </button>
+        {/* Control Buttons */}
+        <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+          {/* Upload Button */}
+          <button
+            onClick={handleUploadClick}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#4a90e2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#357abd'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#4a90e2'
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>+</span> Upload SVG
+          </button>
+          
+          {/* Path Drawing Controls */}
+          {loadedSVG && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={togglePathMode}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: isPathMode ? '#ff6b6b' : '#52c41a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  flex: 1
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = isPathMode ? '#ff5252' : '#389e0d'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = isPathMode ? '#ff6b6b' : '#52c41a'
+                }}
+              >
+                {isPathMode ? '✓ Exit Path Mode' : '✏️ Draw Path'}
+              </button>
+              
+              {isPathMode && (
+                <button
+                  onClick={clearPath}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#ff9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f57c00'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ff9800'
+                  }}
+                >
+                  Clear Path
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         
         {/* Hidden file input */}
         <input
