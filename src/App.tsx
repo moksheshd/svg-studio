@@ -8,6 +8,12 @@ function App() {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null)
   const frameIdRef = useRef<number | null>(null)
+  
+  // Camera control states
+  const zoomRef = useRef<number>(1)
+  const isPanningRef = useRef<boolean>(false)
+  const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const cameraPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   useEffect(() => {
     if (!mountRef.current) return
@@ -46,6 +52,76 @@ function App() {
     directionalLight.position.set(10, 10, 5)
     scene.add(directionalLight)
 
+    // Mouse wheel zoom handler
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      
+      const zoomSpeed = 0.001
+      const delta = event.deltaY * zoomSpeed
+      
+      // Update zoom level (clamped between 0.1 and 10)
+      zoomRef.current = Math.max(0.1, Math.min(10, zoomRef.current * (1 + delta)))
+      
+      // Update camera frustum based on zoom
+      const aspect = mountRef.current!.clientWidth / mountRef.current!.clientHeight
+      const frustumSize = 10 / zoomRef.current
+      
+      camera.left = (frustumSize * aspect) / -2
+      camera.right = (frustumSize * aspect) / 2
+      camera.top = frustumSize / 2
+      camera.bottom = frustumSize / -2
+      camera.updateProjectionMatrix()
+    }
+    
+    // Mouse pan handlers
+    const handleMouseDown = (event: MouseEvent) => {
+      // Right click for pan
+      if (event.button === 2) {
+        event.preventDefault()
+        isPanningRef.current = true
+        panStartRef.current = { x: event.clientX, y: event.clientY }
+      }
+    }
+    
+    const handleMouseMove = (event: MouseEvent) => {
+      if (isPanningRef.current && cameraRef.current) {
+        const deltaX = event.clientX - panStartRef.current.x
+        const deltaY = event.clientY - panStartRef.current.y
+        
+        // Calculate pan speed based on zoom level
+        const panSpeed = 0.01 / zoomRef.current
+        
+        // Update camera position
+        cameraPositionRef.current.x -= deltaX * panSpeed
+        cameraPositionRef.current.y += deltaY * panSpeed
+        
+        cameraRef.current.position.x = cameraPositionRef.current.x
+        cameraRef.current.position.y = cameraPositionRef.current.y
+        cameraRef.current.lookAt(cameraPositionRef.current.x, cameraPositionRef.current.y, 0)
+        
+        // Update pan start position for next frame
+        panStartRef.current = { x: event.clientX, y: event.clientY }
+      }
+    }
+    
+    const handleMouseUp = () => {
+      isPanningRef.current = false
+    }
+    
+    // Prevent context menu on right click
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault()
+    }
+    
+    // Add event listeners
+    const canvas = renderer.domElement
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    canvas.addEventListener('mousedown', handleMouseDown)
+    canvas.addEventListener('mousemove', handleMouseMove)
+    canvas.addEventListener('mouseup', handleMouseUp)
+    canvas.addEventListener('mouseleave', handleMouseUp)
+    canvas.addEventListener('contextmenu', handleContextMenu)
+
     // Animation loop
     const animate = () => {
       frameIdRef.current = requestAnimationFrame(animate)
@@ -58,7 +134,7 @@ function App() {
       if (!mountRef.current || !cameraRef.current) return
       
       const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight
-      const frustumSize = 10
+      const frustumSize = 10 / zoomRef.current
       
       cameraRef.current.left = (frustumSize * aspect) / -2
       cameraRef.current.right = (frustumSize * aspect) / 2
@@ -78,6 +154,14 @@ function App() {
       }
       
       window.removeEventListener('resize', handleResize)
+      
+      // Remove camera control event listeners
+      canvas.removeEventListener('wheel', handleWheel)
+      canvas.removeEventListener('mousedown', handleMouseDown)
+      canvas.removeEventListener('mousemove', handleMouseMove)
+      canvas.removeEventListener('mouseup', handleMouseUp)
+      canvas.removeEventListener('mouseleave', handleMouseUp)
+      canvas.removeEventListener('contextmenu', handleContextMenu)
       
       if (mountRef.current && renderer.domElement) {
         mountRef.current.removeChild(renderer.domElement)
