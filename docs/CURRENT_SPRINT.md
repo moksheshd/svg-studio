@@ -37,11 +37,11 @@ The demo must demonstrate this complete workflow:
   - Basic styling preservation
 
 ### Phase 0.2: Interaction Tools (Days 3-4)
-- [ ] **Add resize functionality**
+- [x] **Add resize functionality** ✅
   - Create corner resize handles
   - Implement drag-to-resize logic
-  - Maintain aspect ratio during resize
-  - Visual feedback during resize operation
+  - Maintain aspect ratio during resize (hold Shift for free resize)
+  - Visual feedback during resize operation (handle highlighting)
 
 - [ ] **Build path drawing tool**
   - Toggle between normal and path-drawing modes

@@ -2,18 +2,26 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import './App.css'
 import { SceneManager } from './core/SceneManager'
 import { SVGProcessor } from './core/SVGProcessor'
+import { ResizeHandles } from './components/ResizeHandles'
+import * as THREE from 'three'
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneManagerRef = useRef<SceneManager | null>(null)
   const svgProcessorRef = useRef<SVGProcessor | null>(null)
+  const resizeHandlesRef = useRef<ResizeHandles | null>(null)
   const frameIdRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster())
+  const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2())
+  const currentSVGGroupRef = useRef<THREE.Group | null>(null)
   
   // UI state
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loadedSVG, setLoadedSVG] = useState<string | null>(null)
+  const [isResizing, setIsResizing] = useState(false)
+  const [isSelected, setIsSelected] = useState(false)
   
   // Camera control states
   const isPanningRef = useRef<boolean>(false)
@@ -29,10 +37,14 @@ function App() {
     
     const svgProcessor = new SVGProcessor()
     svgProcessorRef.current = svgProcessor
-
-    // Add a test SVG to start with
-    const testSVG = svgProcessor.createTestSVG()
-    sceneManager.svgGroup.add(testSVG)
+    
+    const resizeHandles = new ResizeHandles()
+    resizeHandlesRef.current = resizeHandles
+    
+    // Add resize handles to the scene
+    resizeHandles.getHandles().forEach(handle => {
+      sceneManager.handleGroup.add(handle)
+    })
 
     // Animation loop
     const animate = () => {
@@ -49,6 +61,74 @@ function App() {
     
     // Mouse pan handlers
     const handleMouseDown = (event: MouseEvent) => {
+      if (!sceneManagerRef.current || !resizeHandlesRef.current) return
+      
+      // Update mouse position
+      const rect = canvas.getBoundingClientRect()
+      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+      
+      // Check for left click
+      if (event.button === 0) {
+        raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+        
+        // First check if clicking on resize handles (if selected)
+        if (isSelected) {
+          const handles = resizeHandlesRef.current.getHandles()
+          const handleIntersects = raycasterRef.current.intersectObjects(handles)
+          
+          if (handleIntersects.length > 0) {
+            event.preventDefault()
+            const handle = handleIntersects[0].object as THREE.Mesh
+            const worldPos = handleIntersects[0].point
+            
+            resizeHandlesRef.current.startResize(handle, new THREE.Vector2(worldPos.x, worldPos.y))
+            setIsResizing(true)
+            return
+          }
+        }
+        
+        // Check if clicking on the SVG
+        if (currentSVGGroupRef.current) {
+          const svgObjects: THREE.Object3D[] = []
+          currentSVGGroupRef.current.traverse((child) => {
+            if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+              svgObjects.push(child)
+            }
+          })
+          
+          const svgIntersects = raycasterRef.current.intersectObjects(svgObjects)
+          
+          if (svgIntersects.length > 0) {
+            // Select the SVG and show resize handles
+            if (!isSelected) {
+              resizeHandlesRef.current.attachToGroup(currentSVGGroupRef.current)
+              
+              // Add bounding box to scene
+              const boundingBoxLines = resizeHandlesRef.current.getBoundingBoxLines()
+              if (boundingBoxLines) {
+                sceneManagerRef.current.handleGroup.add(boundingBoxLines)
+              }
+              
+              setIsSelected(true)
+            }
+          } else {
+            // Clicked outside - deselect
+            if (isSelected && !isResizing) {
+              resizeHandlesRef.current.detach()
+              
+              // Remove bounding box from scene
+              const boundingBoxLines = resizeHandlesRef.current.getBoundingBoxLines()
+              if (boundingBoxLines && boundingBoxLines.parent) {
+                sceneManagerRef.current.handleGroup.remove(boundingBoxLines)
+              }
+              
+              setIsSelected(false)
+            }
+          }
+        }
+      }
+      
       // Right click for pan
       if (event.button === 2) {
         event.preventDefault()
@@ -58,6 +138,31 @@ function App() {
     }
     
     const handleMouseMove = (event: MouseEvent) => {
+      if (!sceneManagerRef.current) return
+      
+      const rect = canvas.getBoundingClientRect()
+      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+      
+      // Handle resize dragging
+      if (isResizing && resizeHandlesRef.current) {
+        // Create a plane at z=0 for raycasting
+        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
+        raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+        
+        // Get intersection with the plane
+        const worldPos = new THREE.Vector3()
+        raycasterRef.current.ray.intersectPlane(plane, worldPos)
+        
+        // Update resize with shift key for aspect ratio
+        resizeHandlesRef.current.updateResize(
+          new THREE.Vector2(worldPos.x, worldPos.y),
+          !event.shiftKey // Maintain aspect ratio unless shift is held
+        )
+        return
+      }
+      
+      // Handle panning
       if (isPanningRef.current && sceneManagerRef.current) {
         const deltaX = event.clientX - panStartRef.current.x
         const deltaY = event.clientY - panStartRef.current.y
@@ -66,11 +171,34 @@ function App() {
         
         // Update pan start position for next frame
         panStartRef.current = { x: event.clientX, y: event.clientY }
+        return
+      }
+      
+      // Highlight resize handles on hover (only if selected)
+      if (isSelected && resizeHandlesRef.current && !isResizing && !isPanningRef.current) {
+        raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+        const handles = resizeHandlesRef.current.getHandles()
+        const intersects = raycasterRef.current.intersectObjects(handles)
+        
+        if (intersects.length > 0) {
+          const handle = intersects[0].object as THREE.Mesh
+          resizeHandlesRef.current.highlightHandle(handle)
+          canvas.style.cursor = resizeHandlesRef.current.getActiveHandleCursor() || 'pointer'
+        } else {
+          resizeHandlesRef.current.highlightHandle(null)
+          canvas.style.cursor = 'default'
+        }
       }
     }
     
     const handleMouseUp = () => {
       isPanningRef.current = false
+      
+      if (isResizing && resizeHandlesRef.current) {
+        resizeHandlesRef.current.endResize()
+        setIsResizing(false)
+        canvas.style.cursor = 'default'
+      }
     }
     
     // Prevent context menu on right click
@@ -153,6 +281,17 @@ function App() {
       
       // Add to scene
       sceneManagerRef.current.svgGroup.add(result.group)
+      currentSVGGroupRef.current = result.group
+      
+      // Deselect any previous selection
+      if (resizeHandlesRef.current && isSelected) {
+        resizeHandlesRef.current.detach()
+        const boundingBoxLines = resizeHandlesRef.current.getBoundingBoxLines()
+        if (boundingBoxLines && boundingBoxLines.parent) {
+          sceneManagerRef.current.handleGroup.remove(boundingBoxLines)
+        }
+        setIsSelected(false)
+      }
       
       setLoadedSVG(file.name)
       setError(null)
@@ -279,7 +418,16 @@ function App() {
       }}>
         <div>
           <div>Controls: Mouse wheel to zoom, Right-click drag to pan</div>
-          {loadedSVG && <div>Loaded: {loadedSVG}</div>}
+          {loadedSVG && (
+            <>
+              <div>Loaded: {loadedSVG}</div>
+              <div style={{ fontSize: '11px', marginTop: '4px', color: '#888' }}>
+                {isSelected ? 
+                  'Drag corners to resize • Hold Shift for free resize • Click outside to deselect' : 
+                  'Click on SVG to select and resize'}
+              </div>
+            </>
+          )}
           {!loadedSVG && <div>Drag & drop an SVG file or click upload</div>}
         </div>
         
