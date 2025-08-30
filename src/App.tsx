@@ -6,7 +6,7 @@ function App() {
   const mountRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  const cameraRef = useRef<THREE.OrthographicCamera | null>(null)
   const frameIdRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -17,14 +17,19 @@ function App() {
     scene.background = new THREE.Color(0xf5f5f5)
     sceneRef.current = scene
 
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      mountRef.current.clientWidth / mountRef.current.clientHeight,
-      0.1,
-      1000
+    // Camera setup - OrthographicCamera for 2D workspace
+    const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight
+    const frustumSize = 10
+    const camera = new THREE.OrthographicCamera(
+      (frustumSize * aspect) / -2,  // left
+      (frustumSize * aspect) / 2,   // right
+      frustumSize / 2,               // top
+      frustumSize / -2,              // bottom
+      0.1,                           // near
+      1000                           // far
     )
-    camera.position.z = 5
+    camera.position.set(0, 0, 10)  // Position camera looking down at XY plane
+    camera.lookAt(0, 0, 0)
     cameraRef.current = camera
 
     // Renderer setup
@@ -50,10 +55,17 @@ function App() {
 
     // Handle window resize
     const handleResize = () => {
-      if (!mountRef.current) return
+      if (!mountRef.current || !cameraRef.current) return
       
-      camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight
-      camera.updateProjectionMatrix()
+      const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight
+      const frustumSize = 10
+      
+      cameraRef.current.left = (frustumSize * aspect) / -2
+      cameraRef.current.right = (frustumSize * aspect) / 2
+      cameraRef.current.top = frustumSize / 2
+      cameraRef.current.bottom = frustumSize / -2
+      cameraRef.current.updateProjectionMatrix()
+      
       renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight)
     }
 
