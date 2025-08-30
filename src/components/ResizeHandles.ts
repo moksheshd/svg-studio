@@ -47,55 +47,17 @@ export class ResizeHandles {
   }
 
   private createBoundingBox(): void {
-    if (!this.targetGroup) return
-    
-    // Remove old bounding box lines if they exist
-    if (this.boundingBoxLines) {
-      this.boundingBoxLines.geometry.dispose()
-      if (this.boundingBoxLines.material instanceof THREE.Material) {
-        this.boundingBoxLines.material.dispose()
-      }
-      this.boundingBoxLines = null
-    }
-    
-    // Calculate tight bounding box from visible geometry only
-    const tempBox = this.calculateTightBoundingBox(this.targetGroup)
-    if (!tempBox || tempBox.isEmpty()) return
-    
-    const min = tempBox.min
-    const max = tempBox.max
-    
-    // Create line geometry for the bounding box
-    const points = []
-    
-    // Create a closed rectangle
-    points.push(new THREE.Vector3(min.x, min.y, 0.1))
-    points.push(new THREE.Vector3(max.x, min.y, 0.1))
-    
-    points.push(new THREE.Vector3(max.x, min.y, 0.1))
-    points.push(new THREE.Vector3(max.x, max.y, 0.1))
-    
-    points.push(new THREE.Vector3(max.x, max.y, 0.1))
-    points.push(new THREE.Vector3(min.x, max.y, 0.1))
-    
-    points.push(new THREE.Vector3(min.x, max.y, 0.1))
-    points.push(new THREE.Vector3(min.x, min.y, 0.1))
-    
-    const geometry = new THREE.BufferGeometry().setFromPoints(points)
-    const material = new THREE.LineBasicMaterial({ 
-      color: 0x4a90e2,
-      linewidth: 2,
-      transparent: true,
-      opacity: 0.8
-    })
-    
-    this.boundingBoxLines = new THREE.LineSegments(geometry, material)
-    this.boundingBoxLines.renderOrder = 998 // Render on top but below handles
+    // No longer creating bounding box lines - only corner handles are shown
+    // This method is kept for compatibility but does nothing
+    return
   }
   
   private calculateTightBoundingBox(group: THREE.Group): THREE.Box3 | null {
     const box = new THREE.Box3()
     let hasGeometry = false
+    
+    // Force update world matrices
+    group.updateMatrixWorld(true)
     
     group.traverse((child) => {
       // Only include visible meshes and lines with actual geometry
@@ -104,31 +66,41 @@ export class ResizeHandles {
         
         // Check if geometry has actual content
         if (geometry && geometry.attributes.position && geometry.attributes.position.count > 0) {
-          // Get world transform
-          child.updateMatrixWorld(true)
-          
-          // Calculate bounds for this specific geometry
-          const childBox = new THREE.Box3()
-          childBox.setFromObject(child)
-          
-          // Only expand if the box is valid and not empty
-          if (!childBox.isEmpty()) {
+          // Compute bounding box in world space
+          geometry.computeBoundingBox()
+          if (geometry.boundingBox && !geometry.boundingBox.isEmpty()) {
+            // Clone the geometry's bounding box
+            const geomBox = geometry.boundingBox.clone()
+            
+            // Apply the object's world transform to the box
+            geomBox.applyMatrix4(child.matrixWorld)
+            
+            // Check if box is valid
             const size = new THREE.Vector3()
-            childBox.getSize(size)
+            geomBox.getSize(size)
             
             // Filter out very small or degenerate geometries
             if (size.x > 0.001 && size.y > 0.001) {
               if (!hasGeometry) {
-                box.copy(childBox)
+                box.copy(geomBox)
                 hasGeometry = true
               } else {
-                box.union(childBox)
+                box.union(geomBox)
               }
             }
           }
         }
       }
     })
+    
+    // If we found geometry, add a small padding to ensure handles are visible
+    if (hasGeometry && !box.isEmpty()) {
+      const padding = 0.1
+      box.min.x -= padding
+      box.min.y -= padding
+      box.max.x += padding
+      box.max.y += padding
+    }
     
     return hasGeometry ? box : null
   }
@@ -154,9 +126,7 @@ export class ResizeHandles {
     // Store the current scale (including any existing transforms like Y-flip)
     this.originalScale.copy(group.scale)
     
-    // Create bounding box visualization
-    this.createBoundingBox()
-    
+    // No longer creating bounding box lines - only show handles
     this.updateHandlePositions()
     this.showHandles()
   }
@@ -213,8 +183,7 @@ export class ResizeHandles {
       handle.mesh.position.set(x, y, 1)  // Higher Z to ensure it's in front
     })
     
-    // Update bounding box lines
-    this.createBoundingBox()
+    // No longer updating bounding box lines
   }
 
   public showHandles(): void {
@@ -234,7 +203,8 @@ export class ResizeHandles {
   }
   
   public getBoundingBoxLines(): THREE.LineSegments | null {
-    return this.boundingBoxLines
+    // No longer using bounding box lines
+    return null
   }
   
   public isActive(): boolean {
