@@ -1,76 +1,49 @@
-import React, { useEffect, useRef } from 'react'
-import * as THREE from 'three'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import './App.css'
+import { SceneManager } from './core/SceneManager'
+import { SVGProcessor } from './core/SVGProcessor'
 
 function App() {
-  const mountRef = useRef<HTMLDivElement>(null)
-  const sceneRef = useRef<THREE.Scene | null>(null)
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const cameraRef = useRef<THREE.OrthographicCamera | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const sceneManagerRef = useRef<SceneManager | null>(null)
+  const svgProcessorRef = useRef<SVGProcessor | null>(null)
   const frameIdRef = useRef<number | null>(null)
   
+  // UI state
+  const [isDragging, setIsDragging] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loadedSVG, setLoadedSVG] = useState<string | null>(null)
+  
   // Camera control states
-  const zoomRef = useRef<number>(1)
   const isPanningRef = useRef<boolean>(false)
   const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-  const cameraPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
+  // Initialize scene
   useEffect(() => {
-    if (!mountRef.current) return
+    if (!canvasRef.current) return
 
-    // Scene setup
-    const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0xf5f5f5)
-    sceneRef.current = scene
+    // Initialize managers
+    const sceneManager = new SceneManager(canvasRef.current)
+    sceneManagerRef.current = sceneManager
+    
+    const svgProcessor = new SVGProcessor()
+    svgProcessorRef.current = svgProcessor
 
-    // Camera setup - OrthographicCamera for 2D workspace
-    const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight
-    const frustumSize = 10
-    const camera = new THREE.OrthographicCamera(
-      (frustumSize * aspect) / -2,  // left
-      (frustumSize * aspect) / 2,   // right
-      frustumSize / 2,               // top
-      frustumSize / -2,              // bottom
-      0.1,                           // near
-      1000                           // far
-    )
-    camera.position.set(0, 0, 10)  // Position camera looking down at XY plane
-    camera.lookAt(0, 0, 0)
-    cameraRef.current = camera
+    // Add a test SVG to start with
+    const testSVG = svgProcessor.createTestSVG()
+    sceneManager.svgGroup.add(testSVG)
 
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight)
-    rendererRef.current = renderer
-    mountRef.current.appendChild(renderer.domElement)
-
-    // Basic lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
-    scene.add(ambientLight)
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
-    directionalLight.position.set(10, 10, 5)
-    scene.add(directionalLight)
+    // Animation loop
+    const animate = () => {
+      frameIdRef.current = requestAnimationFrame(animate)
+      sceneManager.render()
+    }
+    animate()
 
     // Mouse wheel zoom handler
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault()
-      
-      const zoomSpeed = 0.001
-      const delta = event.deltaY * zoomSpeed
-      
-      // Update zoom level (clamped between 0.1 and 10)
-      zoomRef.current = Math.max(0.1, Math.min(10, zoomRef.current * (1 + delta)))
-      
-      // Update camera frustum based on zoom
-      const aspect = mountRef.current!.clientWidth / mountRef.current!.clientHeight
-      const frustumSize = 10 / zoomRef.current
-      
-      camera.left = (frustumSize * aspect) / -2
-      camera.right = (frustumSize * aspect) / 2
-      camera.top = frustumSize / 2
-      camera.bottom = frustumSize / -2
-      camera.updateProjectionMatrix()
+      sceneManager.updateZoom(event.deltaY)
     }
     
     // Mouse pan handlers
@@ -84,20 +57,11 @@ function App() {
     }
     
     const handleMouseMove = (event: MouseEvent) => {
-      if (isPanningRef.current && cameraRef.current) {
+      if (isPanningRef.current && sceneManagerRef.current) {
         const deltaX = event.clientX - panStartRef.current.x
         const deltaY = event.clientY - panStartRef.current.y
         
-        // Calculate pan speed based on zoom level
-        const panSpeed = 0.01 / zoomRef.current
-        
-        // Update camera position
-        cameraPositionRef.current.x -= deltaX * panSpeed
-        cameraPositionRef.current.y += deltaY * panSpeed
-        
-        cameraRef.current.position.x = cameraPositionRef.current.x
-        cameraRef.current.position.y = cameraPositionRef.current.y
-        cameraRef.current.lookAt(cameraPositionRef.current.x, cameraPositionRef.current.y, 0)
+        sceneManagerRef.current.updatePan(deltaX, deltaY)
         
         // Update pan start position for next frame
         panStartRef.current = { x: event.clientX, y: event.clientY }
@@ -112,39 +76,24 @@ function App() {
     const handleContextMenu = (event: MouseEvent) => {
       event.preventDefault()
     }
-    
+
+    // Handle window resize
+    const handleResize = () => {
+      if (!canvasRef.current || !sceneManagerRef.current) return
+      sceneManagerRef.current.handleResize(
+        canvasRef.current.clientWidth,
+        canvasRef.current.clientHeight
+      )
+    }
+
     // Add event listeners
-    const canvas = renderer.domElement
+    const canvas = sceneManager.renderer.domElement
     canvas.addEventListener('wheel', handleWheel, { passive: false })
     canvas.addEventListener('mousedown', handleMouseDown)
     canvas.addEventListener('mousemove', handleMouseMove)
     canvas.addEventListener('mouseup', handleMouseUp)
     canvas.addEventListener('mouseleave', handleMouseUp)
     canvas.addEventListener('contextmenu', handleContextMenu)
-
-    // Animation loop
-    const animate = () => {
-      frameIdRef.current = requestAnimationFrame(animate)
-      renderer.render(scene, camera)
-    }
-    animate()
-
-    // Handle window resize
-    const handleResize = () => {
-      if (!mountRef.current || !cameraRef.current) return
-      
-      const aspect = mountRef.current.clientWidth / mountRef.current.clientHeight
-      const frustumSize = 10 / zoomRef.current
-      
-      cameraRef.current.left = (frustumSize * aspect) / -2
-      cameraRef.current.right = (frustumSize * aspect) / 2
-      cameraRef.current.top = frustumSize / 2
-      cameraRef.current.bottom = frustumSize / -2
-      cameraRef.current.updateProjectionMatrix()
-      
-      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight)
-    }
-
     window.addEventListener('resize', handleResize)
 
     // Cleanup
@@ -153,27 +102,155 @@ function App() {
         cancelAnimationFrame(frameIdRef.current)
       }
       
-      window.removeEventListener('resize', handleResize)
-      
-      // Remove camera control event listeners
       canvas.removeEventListener('wheel', handleWheel)
       canvas.removeEventListener('mousedown', handleMouseDown)
       canvas.removeEventListener('mousemove', handleMouseMove)
       canvas.removeEventListener('mouseup', handleMouseUp)
       canvas.removeEventListener('mouseleave', handleMouseUp)
       canvas.removeEventListener('contextmenu', handleContextMenu)
+      window.removeEventListener('resize', handleResize)
       
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement)
-      }
+      sceneManager.dispose()
+    }
+  }, [])
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    setError(null)
+
+    const files = Array.from(e.dataTransfer.files)
+    const svgFile = files.find(file => file.name.toLowerCase().endsWith('.svg'))
+
+    if (!svgFile) {
+      setError('Please drop a valid SVG file')
+      setTimeout(() => setError(null), 3000)
+      return
+    }
+
+    if (!sceneManagerRef.current || !svgProcessorRef.current) {
+      setError('Scene not initialized')
+      return
+    }
+
+    try {
+      // Clear existing SVG
+      sceneManagerRef.current.clearSVG()
       
-      renderer.dispose()
+      // Load and process new SVG
+      const result = await svgProcessorRef.current.loadSVGFile(svgFile)
+      
+      // Scale to fit viewport
+      svgProcessorRef.current.scaleToFit(result.group, 5)
+      
+      // Add to scene
+      sceneManagerRef.current.svgGroup.add(result.group)
+      
+      setLoadedSVG(svgFile.name)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load SVG')
+      setTimeout(() => setError(null), 5000)
     }
   }, [])
 
   return (
-    <div className="App" style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden' }}>
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+    <div 
+      className="App" 
+      style={{ 
+        width: '100vw', 
+        height: '100vh', 
+        margin: 0, 
+        padding: 0, 
+        overflow: 'hidden',
+        position: 'relative'
+      }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <canvas 
+        ref={canvasRef}
+        style={{ 
+          width: '100%', 
+          height: '100%',
+          display: 'block'
+        }} 
+      />
+      
+      {/* Drag overlay */}
+      {isDragging && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(74, 144, 226, 0.1)',
+          border: '3px dashed #4a90e2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          zIndex: 1000
+        }}>
+          <div style={{
+            padding: '20px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+          }}>
+            <h2 style={{ margin: 0, color: '#4a90e2' }}>Drop SVG file here</h2>
+          </div>
+        </div>
+      )}
+      
+      {/* Error message */}
+      {error && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '10px 20px',
+          backgroundColor: '#ff4444',
+          color: 'white',
+          borderRadius: '4px',
+          zIndex: 1001
+        }}>
+          {error}
+        </div>
+      )}
+      
+      {/* Status */}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        left: '20px',
+        padding: '10px',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        borderRadius: '4px',
+        fontSize: '12px',
+        color: '#666'
+      }}>
+        <div>Controls: Mouse wheel to zoom, Right-click drag to pan</div>
+        {loadedSVG && <div>Loaded: {loadedSVG}</div>}
+        {!loadedSVG && <div>Drag & drop an SVG file to import</div>}
+      </div>
     </div>
   )
 }

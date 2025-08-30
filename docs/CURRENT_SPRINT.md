@@ -1,9 +1,9 @@
 # Current Sprint: Phase 0 - Demo MVP
 
-**Status**: ⏳ Ready to Start  
+**Status**: 🔄 IN PROGRESS  
 **Goal**: Create working demo with core path animation functionality  
 **Timeline**: Week 0 (5-7 days estimated)  
-**Started**: Not yet started  
+**Started**: August 30, 2025  
 **Phase Details**: [docs/phases/PHASE_0_DEMO_MVP.md](phases/PHASE_0_DEMO_MVP.md)
 
 ## Sprint Objective
@@ -19,18 +19,18 @@ The demo must demonstrate this complete workflow:
 ## Active Tasks
 
 ### Phase 0.1: Foundation Setup (Days 1-2)
-- [ ] **Update camera system**
+- [x] **Update camera system** ✅
   - Replace PerspectiveCamera with OrthographicCamera in App.tsx
   - Position camera at (0, 0, 10) looking down at XY plane
   - Add basic zoom (mouse wheel) and pan (right-click drag)
 
-- [ ] **Implement basic SVG import**
+- [x] **Implement basic SVG import** ✅
   - Add drag & drop event handlers to canvas
   - File validation for .svg files
   - Basic error handling and user feedback
   - Auto-center imported SVG in viewport
 
-- [ ] **SVG processing and display**
+- [x] **SVG processing and display** ✅
   - Integrate Three.js SVGLoader
   - Convert SVG to Three.js geometry
   - Display in scene at Z=0
@@ -79,17 +79,26 @@ The demo must demonstrate this complete workflow:
 - [ ] Works with common SVG files (icons, simple illustrations)
 
 ## Current Blockers
-*None - ready to start*
+*None*
 
 ## Notes
 - Focus on Three.js SVGLoader over manual DOM parsing for robustness
-- OrthographicCamera essential for true 2D feel without perspective distortion
+- OrthographicCamera essential for true 2D feel without perspective distortion ✅ Implemented
 - Consider performance implications for large SVG files
+- Camera controls implemented: Mouse wheel zoom (0.1x-10x), right-click pan
+
+## Technical Decisions Made
+- **OrthographicCamera**: Implemented with frustum size 10 for proper 2D workspace
+- **Camera Controls**: Zoom with mouse wheel, pan with right-click drag
+- **State Management**: Using useRef for camera control states to avoid React re-renders
+- **Architecture Pattern**: Separated concerns with SceneManager and SVGProcessor classes
+- **SVG Import**: Using Three.js SVGLoader from 'three/addons/loaders/SVGLoader.js'
+- **Coordinate System**: Properly handling SVG Y-axis flip for Three.js compatibility
 
 ## Next Sprint Preview
 Once Phase 1 is complete, Phase 2 will focus on element selection and interaction for animation targeting.
 
 ---
 
-*Sprint started: TBD*  
-*Last updated: August 27, 2025*
+*Sprint started: August 30, 2025*  
+*Last updated: August 30, 2025*
