@@ -47,7 +47,7 @@ export class ResizeHandles {
   }
 
   private createBoundingBox(): void {
-    if (!this.boundingBox || !this.targetGroup) return
+    if (!this.targetGroup) return
     
     // Remove old bounding box lines if they exist
     if (this.boundingBoxLines) {
@@ -58,8 +58,10 @@ export class ResizeHandles {
       this.boundingBoxLines = null
     }
     
-    // Get the actual bounding box of the scaled object
-    const tempBox = new THREE.Box3().setFromObject(this.targetGroup)
+    // Calculate tight bounding box from visible geometry only
+    const tempBox = this.calculateTightBoundingBox(this.targetGroup)
+    if (!tempBox || tempBox.isEmpty()) return
+    
     const min = tempBox.min
     const max = tempBox.max
     
@@ -90,15 +92,59 @@ export class ResizeHandles {
     this.boundingBoxLines = new THREE.LineSegments(geometry, material)
     this.boundingBoxLines.renderOrder = 998 // Render on top but below handles
   }
+  
+  private calculateTightBoundingBox(group: THREE.Group): THREE.Box3 | null {
+    const box = new THREE.Box3()
+    let hasGeometry = false
+    
+    group.traverse((child) => {
+      // Only include visible meshes and lines with actual geometry
+      if ((child instanceof THREE.Mesh || child instanceof THREE.Line) && child.visible) {
+        const geometry = child.geometry
+        
+        // Check if geometry has actual content
+        if (geometry && geometry.attributes.position && geometry.attributes.position.count > 0) {
+          // Get world transform
+          child.updateMatrixWorld(true)
+          
+          // Calculate bounds for this specific geometry
+          const childBox = new THREE.Box3()
+          childBox.setFromObject(child)
+          
+          // Only expand if the box is valid and not empty
+          if (!childBox.isEmpty()) {
+            const size = new THREE.Vector3()
+            childBox.getSize(size)
+            
+            // Filter out very small or degenerate geometries
+            if (size.x > 0.001 && size.y > 0.001) {
+              if (!hasGeometry) {
+                box.copy(childBox)
+                hasGeometry = true
+              } else {
+                box.union(childBox)
+              }
+            }
+          }
+        }
+      }
+    })
+    
+    return hasGeometry ? box : null
+  }
 
   public attachToGroup(group: THREE.Group): void {
     if (!group) return
     
     this.targetGroup = group
     
-    // Calculate and store the bounding box once
-    // This will be used throughout the resize operation
-    this.boundingBox = new THREE.Box3().setFromObject(group)
+    // Calculate tight bounding box from visible geometry only
+    this.boundingBox = this.calculateTightBoundingBox(group)
+    
+    if (!this.boundingBox) {
+      console.warn('No visible geometry found in group')
+      return
+    }
     
     // Calculate aspect ratio
     const size = new THREE.Vector3()
@@ -135,8 +181,10 @@ export class ResizeHandles {
   private updateHandlePositions(): void {
     if (!this.targetGroup) return
 
-    // Get the actual bounding box of the scaled object
-    const tempBox = new THREE.Box3().setFromObject(this.targetGroup)
+    // Calculate tight bounding box for current state
+    const tempBox = this.calculateTightBoundingBox(this.targetGroup)
+    if (!tempBox) return
+    
     const min = tempBox.min
     const max = tempBox.max
     
