@@ -4,6 +4,7 @@ import { SceneManager } from './core/SceneManager'
 import { SVGProcessor } from './core/SVGProcessor'
 import { ResizeHandles } from './components/ResizeHandles'
 import { PathDrawingTool } from './components/PathDrawingTool'
+import { AnimationController } from './components/AnimationController'
 import * as THREE from 'three'
 
 function App() {
@@ -12,6 +13,7 @@ function App() {
   const svgProcessorRef = useRef<SVGProcessor | null>(null)
   const resizeHandlesRef = useRef<ResizeHandles | null>(null)
   const pathDrawingToolRef = useRef<PathDrawingTool | null>(null)
+  const animationControllerRef = useRef<AnimationController | null>(null)
   const frameIdRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster())
@@ -26,6 +28,8 @@ function App() {
   const [isSelected, setIsSelected] = useState(false)
   const [isPathMode, setIsPathMode] = useState(false)
   const [isDraggingPoint, setIsDraggingPoint] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [animationSpeed, setAnimationSpeed] = useState(1)
   
   // Camera control states
   const isPanningRef = useRef<boolean>(false)
@@ -297,6 +301,9 @@ function App() {
     const pathDrawingTool = new PathDrawingTool()
     pathDrawingToolRef.current = pathDrawingTool
     
+    const animationController = new AnimationController()
+    animationControllerRef.current = animationController
+    
     // Add resize handles to the scene
     resizeHandles.getHandles().forEach(handle => {
       sceneManager.handleGroup.add(handle)
@@ -358,6 +365,7 @@ function App() {
       
       sceneManager.dispose()
       pathDrawingToolRef.current?.dispose()
+      animationControllerRef.current?.dispose()
     }
   }, [handleMouseDown, handleMouseMove, handleMouseUp])
 
@@ -400,6 +408,11 @@ function App() {
       // Add to scene
       sceneManagerRef.current.svgGroup.add(result.group)
       currentSVGGroupRef.current = result.group
+      
+      // Set the SVG as animation target
+      if (animationControllerRef.current) {
+        animationControllerRef.current.setTarget(result.group)
+      }
       
       // Deselect any previous selection
       if (resizeHandlesRef.current && isSelected) {
@@ -489,6 +502,58 @@ function App() {
   const clearPath = useCallback(() => {
     if (!pathDrawingToolRef.current) return
     pathDrawingToolRef.current.clearPath()
+    
+    // Clear animation path as well
+    if (animationControllerRef.current) {
+      animationControllerRef.current.setPath([])
+    }
+  }, [])
+  
+  // Play animation
+  const playAnimation = useCallback(() => {
+    if (!animationControllerRef.current || !pathDrawingToolRef.current) return
+    
+    const pathPoints = pathDrawingToolRef.current.getPathAsVector2Array()
+    if (pathPoints.length < 2) {
+      setError('Please draw a path with at least 2 points')
+      setTimeout(() => setError(null), 3000)
+      return
+    }
+    
+    // Exit path mode if active
+    if (isPathMode) {
+      togglePathMode()
+    }
+    
+    // Set path and play
+    animationControllerRef.current.setPath(pathPoints)
+    animationControllerRef.current.play({
+      duration: 5 / animationSpeed,
+      ease: 'power2.inOut'
+    })
+    setIsAnimating(true)
+  }, [isPathMode, animationSpeed, togglePathMode])
+  
+  // Pause animation
+  const pauseAnimation = useCallback(() => {
+    if (!animationControllerRef.current) return
+    animationControllerRef.current.pause()
+    setIsAnimating(false)
+  }, [])
+  
+  // Reset animation
+  const resetAnimation = useCallback(() => {
+    if (!animationControllerRef.current) return
+    animationControllerRef.current.reset()
+    setIsAnimating(false)
+  }, [])
+  
+  // Update animation speed
+  const updateAnimationSpeed = useCallback((speed: number) => {
+    setAnimationSpeed(speed)
+    if (animationControllerRef.current) {
+      animationControllerRef.current.setSpeed(speed)
+    }
   }, [])
 
   return (
@@ -579,11 +644,13 @@ function App() {
             <>
               <div>Loaded: {loadedSVG}</div>
               <div style={{ fontSize: '11px', marginTop: '4px', color: '#888' }}>
-                {isPathMode ? 
-                  'Click to add path points • Drag points to move • Right-click to remove' :
-                  isSelected ? 
-                    'Drag corners to resize • Hold Shift for free resize • Click outside to deselect' : 
-                    'Click on SVG to select and resize'}
+                {isAnimating ?
+                  'Animation playing...' :
+                  isPathMode ? 
+                    'Click to add path points • Drag points to move • Right-click to remove' :
+                    isSelected ? 
+                      'Drag corners to resize • Hold Shift for free resize • Click outside to deselect' : 
+                      'Click on SVG to select and resize'}
               </div>
             </>
           )}
@@ -621,54 +688,166 @@ function App() {
           
           {/* Path Drawing Controls */}
           {loadedSVG && (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={togglePathMode}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: isPathMode ? '#ff6b6b' : '#52c41a',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  flex: 1
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isPathMode ? '#ff5252' : '#389e0d'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isPathMode ? '#ff6b6b' : '#52c41a'
-                }}
-              >
-                {isPathMode ? '✓ Exit Path Mode' : '✏️ Draw Path'}
-              </button>
-              
-              {isPathMode && (
+            <>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={clearPath}
+                  onClick={togglePathMode}
+                  disabled={isAnimating}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#ff9800',
+                    backgroundColor: isPathMode ? '#ff6b6b' : '#52c41a',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: 'pointer',
+                    cursor: isAnimating ? 'not-allowed' : 'pointer',
                     fontSize: '14px',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    flex: 1,
+                    opacity: isAnimating ? 0.5 : 1
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f57c00'
+                    if (!isAnimating) {
+                      e.currentTarget.style.backgroundColor = isPathMode ? '#ff5252' : '#389e0d'
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#ff9800'
+                    if (!isAnimating) {
+                      e.currentTarget.style.backgroundColor = isPathMode ? '#ff6b6b' : '#52c41a'
+                    }
                   }}
                 >
-                  Clear Path
+                  {isPathMode ? '✓ Exit Path Mode' : '✏️ Draw Path'}
                 </button>
+                
+                {isPathMode && (
+                  <button
+                    onClick={clearPath}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#ff9800',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f57c00'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#ff9800'
+                    }}
+                  >
+                    Clear Path
+                  </button>
+                )}
+              </div>
+              
+              {/* Animation Controls */}
+              {pathDrawingToolRef.current?.hasValidPath() && !isPathMode && (
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '8px',
+                  padding: '8px',
+                  backgroundColor: 'rgba(240, 240, 240, 0.9)',
+                  borderRadius: '4px'
+                }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {!isAnimating ? (
+                      <button
+                        onClick={playAnimation}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#1890ff',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          flex: 1
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#096dd9'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#1890ff'
+                        }}
+                      >
+                        ▶️ Play
+                      </button>
+                    ) : (
+                      <button
+                        onClick={pauseAnimation}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#ff9800',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          flex: 1
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f57c00'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ff9800'
+                        }}
+                      >
+                        ⏸ Pause
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={resetAnimation}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#9e9e9e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#757575'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#9e9e9e'
+                      }}
+                    >
+                      ⏹ Reset
+                    </button>
+                  </div>
+                  
+                  {/* Speed Control */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    fontSize: '12px'
+                  }}>
+                    <span>Speed:</span>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="3"
+                      step="0.5"
+                      value={animationSpeed}
+                      onChange={(e) => updateAnimationSpeed(parseFloat(e.target.value))}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ minWidth: '30px' }}>{animationSpeed}x</span>
+                  </div>
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
         
