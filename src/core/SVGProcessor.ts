@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { SVGLoader } from 'three/addons/loaders/SVGLoader.js'
+// @ts-ignore - SVGLoader types not included
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader'
 
 export interface SVGProcessResult {
   group: THREE.Group

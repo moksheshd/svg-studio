@@ -8,6 +8,7 @@ function App() {
   const sceneManagerRef = useRef<SceneManager | null>(null)
   const svgProcessorRef = useRef<SVGProcessor | null>(null)
   const frameIdRef = useRef<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   // UI state
   const [isDragging, setIsDragging] = useState(false)
@@ -127,6 +128,42 @@ function App() {
     setIsDragging(false)
   }, [])
 
+  // Handle SVG file loading
+  const handleSVGFile = useCallback(async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.svg')) {
+      setError('Please select a valid SVG file')
+      setTimeout(() => setError(null), 3000)
+      return
+    }
+
+    if (!sceneManagerRef.current || !svgProcessorRef.current) {
+      setError('Scene not initialized')
+      return
+    }
+
+    try {
+      // Clear existing SVG
+      sceneManagerRef.current.clearSVG()
+      
+      // Load and process new SVG
+      const result = await svgProcessorRef.current.loadSVGFile(file)
+      
+      // Scale to fit viewport
+      svgProcessorRef.current.scaleToFit(result.group, 5)
+      
+      // Add to scene
+      sceneManagerRef.current.svgGroup.add(result.group)
+      
+      setLoadedSVG(file.name)
+      setError(null)
+      console.log('SVG loaded successfully:', file.name)
+    } catch (err) {
+      console.error('Error loading SVG:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load SVG')
+      setTimeout(() => setError(null), 5000)
+    }
+  }, [])
+
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -142,30 +179,20 @@ function App() {
       return
     }
 
-    if (!sceneManagerRef.current || !svgProcessorRef.current) {
-      setError('Scene not initialized')
-      return
-    }
+    await handleSVGFile(svgFile)
+  }, [handleSVGFile])
 
-    try {
-      // Clear existing SVG
-      sceneManagerRef.current.clearSVG()
-      
-      // Load and process new SVG
-      const result = await svgProcessorRef.current.loadSVGFile(svgFile)
-      
-      // Scale to fit viewport
-      svgProcessorRef.current.scaleToFit(result.group, 5)
-      
-      // Add to scene
-      sceneManagerRef.current.svgGroup.add(result.group)
-      
-      setLoadedSVG(svgFile.name)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load SVG')
-      setTimeout(() => setError(null), 5000)
+  // Handle file input change
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      await handleSVGFile(file)
     }
+  }, [handleSVGFile])
+
+  // Trigger file input click
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click()
   }, [])
 
   return (
@@ -236,7 +263,7 @@ function App() {
         </div>
       )}
       
-      {/* Status */}
+      {/* Status and Upload Button */}
       <div style={{
         position: 'absolute',
         bottom: '20px',
@@ -245,11 +272,52 @@ function App() {
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
         borderRadius: '4px',
         fontSize: '12px',
-        color: '#666'
+        color: '#666',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
       }}>
-        <div>Controls: Mouse wheel to zoom, Right-click drag to pan</div>
-        {loadedSVG && <div>Loaded: {loadedSVG}</div>}
-        {!loadedSVG && <div>Drag & drop an SVG file to import</div>}
+        <div>
+          <div>Controls: Mouse wheel to zoom, Right-click drag to pan</div>
+          {loadedSVG && <div>Loaded: {loadedSVG}</div>}
+          {!loadedSVG && <div>Drag & drop an SVG file or click upload</div>}
+        </div>
+        
+        {/* Upload Button */}
+        <button
+          onClick={handleUploadClick}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#4a90e2',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '5px'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#357abd'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#4a90e2'
+          }}
+        >
+          <span style={{ fontSize: '18px' }}>+</span> Upload SVG
+        </button>
+        
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".svg"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
       </div>
     </div>
   )
