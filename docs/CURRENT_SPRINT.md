@@ -44,11 +44,13 @@ The demo must demonstrate this complete workflow:
   - Visual feedback during resize operation (handle highlighting)
   - Refined UI: Removed bounding box lines, kept only corner handles for cleaner look
 
-- [ ] **Build path drawing tool**
+- [x] **Build path drawing tool** ✅ Completed August 30, 2025
   - Toggle between normal and path-drawing modes
   - Click-to-add-point functionality
   - Visual path representation (line geometry)
-  - Path point editing (drag to move, click to remove)
+  - Path point editing (drag to move, right-click to remove)
+  - Clear path functionality
+  - Visual feedback with hover highlighting
 
 ### Phase 0.3: Animation & Controls (Days 5-7)
 - [ ] **Integrate GSAP animation**
@@ -70,10 +72,10 @@ The demo must demonstrate this complete workflow:
   - Performance optimization
 
 ## Definition of Done
-- [ ] User can drag & drop SVG file and see it displayed
-- [ ] User can resize SVG using corner handles
-- [ ] User can enter path drawing mode and click to add points
-- [ ] User can see visual path connecting the points
+- [x] User can drag & drop SVG file and see it displayed ✅
+- [x] User can resize SVG using corner handles ✅
+- [x] User can enter path drawing mode and click to add points ✅
+- [x] User can see visual path connecting the points ✅
 - [ ] User can click play and watch SVG smoothly follow the path
 - [ ] User can reset animation to start position
 - [ ] Demo workflow completes in under 30 seconds
@@ -83,11 +85,17 @@ The demo must demonstrate this complete workflow:
 *None*
 
 ## Recent Updates
-- **August 30, 2025**: Completed resize functionality with corner handles
-  - Implemented ResizeHandles class with NW, NE, SE, SW corner controls
-  - Added visual feedback (handle highlighting on hover)
-  - Fixed coordinate system issues with SVG Y-axis flip
-  - Refined UI by removing bounding box lines for cleaner appearance
+- **August 30, 2025**: Completed Phase 0.2 - Interaction Tools
+  - **Resize functionality**: Implemented ResizeHandles class with corner controls
+    - Added visual feedback (handle highlighting on hover)
+    - Fixed coordinate system issues with SVG Y-axis flip
+    - Refined UI by removing bounding box lines for cleaner appearance
+  - **Path drawing tool**: Implemented PathDrawingTool class
+    - Click to add path points
+    - Drag points to reposition them
+    - Right-click to remove points
+    - Visual path line connecting all points
+    - Mode toggle UI with Draw Path and Clear Path buttons
 
 ## Notes
 - Focus on Three.js SVGLoader over manual DOM parsing for robustness
@@ -109,4 +117,4 @@ Once Phase 1 is complete, Phase 2 will focus on element selection and interactio
 ---
 
 *Sprint started: August 30, 2025*  
-*Last updated: August 30, 2025 - Resize functionality complete, starting path drawing tool*
+*Last updated: August 30, 2025 - Phase 0.2 complete (Resize & Path Drawing), ready for Phase 0.3 (Animation)*
