@@ -1,6 +1,5 @@
 import * as THREE from 'three'
-// @ts-ignore - SVGLoader types not included
-import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader'
+import { SVGLoader } from 'three/addons/loaders/SVGLoader.js'
 
 export interface SVGProcessResult {
   group: THREE.Group
@@ -144,8 +143,14 @@ export class SVGProcessor {
     
     const maxDimension = Math.max(size.x, size.y)
     if (maxDimension > 0) {
+      // Scale down more aggressively if the SVG is very large
       const scale = targetSize / maxDimension
       svgGroup.scale.multiplyScalar(scale)
+      
+      // Ensure the SVG is centered after scaling
+      const scaledBounds = new THREE.Box3().setFromObject(svgGroup)
+      const center = scaledBounds.getCenter(new THREE.Vector3())
+      svgGroup.position.sub(center)
     }
   }
 
