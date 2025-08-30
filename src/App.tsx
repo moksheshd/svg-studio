@@ -30,6 +30,7 @@ function App() {
   const [isDraggingPoint, setIsDraggingPoint] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [animationSpeed, setAnimationSpeed] = useState(1)
+  const [autoRotate, setAutoRotate] = useState(false)
   
   // Camera control states
   const isPanningRef = useRef<boolean>(false)
@@ -529,10 +530,11 @@ function App() {
     animationControllerRef.current.setPath(pathPoints)
     animationControllerRef.current.play({
       duration: 5 / animationSpeed,
-      ease: 'power2.inOut'
+      ease: 'power2.inOut',
+      autoRotate: autoRotate
     })
     setIsAnimating(true)
-  }, [isPathMode, animationSpeed, togglePathMode])
+  }, [isPathMode, animationSpeed, autoRotate, togglePathMode])
   
   // Pause animation
   const pauseAnimation = useCallback(() => {
@@ -844,6 +846,28 @@ function App() {
                       style={{ flex: 1 }}
                     />
                     <span style={{ minWidth: '30px' }}>{animationSpeed}x</span>
+                  </div>
+                  
+                  {/* Auto-rotate Control */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    fontSize: '12px'
+                  }}>
+                    <input
+                      type="checkbox"
+                      id="autoRotate"
+                      checked={autoRotate}
+                      onChange={(e) => setAutoRotate(e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <label 
+                      htmlFor="autoRotate" 
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      Auto-rotate to face direction
+                    </label>
                   </div>
                 </div>
               )}

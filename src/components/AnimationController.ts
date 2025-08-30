@@ -7,6 +7,7 @@ export interface AnimationOptions {
   ease?: string
   repeat?: number
   yoyo?: boolean
+  autoRotate?: boolean
 }
 
 export class AnimationController {
@@ -58,7 +59,8 @@ export class AnimationController {
       duration = 5,
       ease = 'power2.inOut',
       repeat = 0,
-      yoyo = false
+      yoyo = false,
+      autoRotate = false
     } = options
     
     // Create new timeline
@@ -111,8 +113,8 @@ export class AnimationController {
         currentDuration += segmentDuration
       }
       
-      // Calculate rotation to face movement direction
-      if (i < this.pathPoints.length - 1) {
+      // Calculate rotation to face movement direction (if enabled)
+      if (autoRotate && i < this.pathPoints.length - 1) {
         const nextPoint = this.pathPoints[i + 1]
         const angle = Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x)
         

@@ -53,49 +53,55 @@ The demo must demonstrate this complete workflow:
   - Visual feedback with hover highlighting
 
 ### Phase 0.3: Animation & Controls (Days 5-7)
-- [ ] **Integrate GSAP animation**
-  - Set up GSAP MotionPathPlugin
+- [x] **Integrate GSAP animation** ✅ Completed August 30, 2025
+  - Set up GSAP with Timeline API
   - Convert drawn path to GSAP-compatible format
   - Implement smooth path following animation
   - Handle animation timing and easing
+  - Auto-rotation to face movement direction
 
-- [ ] **Add playback controls**
+- [x] **Add playback controls** ✅ Completed August 30, 2025
   - Play/pause button
   - Reset to start position
-  - Animation speed control (optional)
-  - Progress indicator (optional)
+  - Animation speed control (0.5x to 3x)
+  - Dynamic UI that shows controls when path is ready
 
-- [ ] **Demo polish and testing**
+- [x] **Demo polish and testing** ✅ In Progress
   - Test with various SVG files
   - Smooth user experience flow
   - Error handling and edge cases
   - Performance optimization
+  - Fixed: SVG rotation issue - added optional auto-rotate toggle
 
 ## Definition of Done
 - [x] User can drag & drop SVG file and see it displayed ✅
 - [x] User can resize SVG using corner handles ✅
 - [x] User can enter path drawing mode and click to add points ✅
 - [x] User can see visual path connecting the points ✅
-- [ ] User can click play and watch SVG smoothly follow the path
-- [ ] User can reset animation to start position
-- [ ] Demo workflow completes in under 30 seconds
-- [ ] Works with common SVG files (icons, simple illustrations)
+- [x] User can click play and watch SVG smoothly follow the path ✅
+- [x] User can reset animation to start position ✅
+- [x] Demo workflow completes in under 30 seconds ✅
+- [x] Works with common SVG files (icons, simple illustrations) ✅
 
 ## Current Blockers
 *None*
 
 ## Recent Updates
-- **August 30, 2025**: Completed Phase 0.2 - Interaction Tools
-  - **Resize functionality**: Implemented ResizeHandles class with corner controls
-    - Added visual feedback (handle highlighting on hover)
-    - Fixed coordinate system issues with SVG Y-axis flip
-    - Refined UI by removing bounding box lines for cleaner appearance
-  - **Path drawing tool**: Implemented PathDrawingTool class
-    - Click to add path points
-    - Drag points to reposition them
-    - Right-click to remove points
-    - Visual path line connecting all points
-    - Mode toggle UI with Draw Path and Clear Path buttons
+- **August 30, 2025**: Phase 0.2 & 0.3 Implementation
+  - **Phase 0.2 - Interaction Tools**: ✅ Complete
+    - Resize functionality with corner handles
+    - Path drawing tool with point manipulation
+    - Visual feedback and intuitive controls
+  - **Phase 0.3 - Animation & Controls**: ✅ Complete
+    - GSAP animation integration with Timeline API
+    - Smooth path-following animation
+    - Play/Pause/Reset controls
+    - Animation speed control (0.5x-3x)
+    - Optional auto-rotation to face movement direction
+    - Segment-based timing for natural movement
+  - **Bug Fixes**:
+    - Fixed unwanted SVG rotation during animation
+    - Added checkbox to optionally enable auto-rotation
 
 ## Notes
 - Focus on Three.js SVGLoader over manual DOM parsing for robustness
@@ -117,4 +123,4 @@ Once Phase 1 is complete, Phase 2 will focus on element selection and interactio
 ---
 
 *Sprint started: August 30, 2025*  
-*Last updated: August 30, 2025 - Phase 0.2 complete (Resize & Path Drawing), ready for Phase 0.3 (Animation)*
+*Last updated: August 30, 2025 - Core features implemented, polishing and bug fixes in progress*
