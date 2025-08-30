@@ -27,6 +27,163 @@ function App() {
   const isPanningRef = useRef<boolean>(false)
   const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
+  // Store selected state in a ref to avoid stale closures
+  const isSelectedRef = useRef(false)
+  const isResizingRef = useRef(false)
+  
+  // Update refs when state changes
+  useEffect(() => {
+    isSelectedRef.current = isSelected
+  }, [isSelected])
+  
+  useEffect(() => {
+    isResizingRef.current = isResizing
+  }, [isResizing])
+
+  // Mouse handlers (defined outside useEffect to avoid stale closures)
+  const handleMouseDown = useCallback((event: MouseEvent) => {
+    if (!sceneManagerRef.current || !resizeHandlesRef.current) return
+    
+    const canvas = sceneManagerRef.current.renderer.domElement
+    const rect = canvas.getBoundingClientRect()
+    mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+    mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    
+    // Check for left click
+    if (event.button === 0) {
+      raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+      
+      // First check if clicking on resize handles (if selected)
+      if (isSelectedRef.current) {
+        const handles = resizeHandlesRef.current.getHandles()
+        const handleIntersects = raycasterRef.current.intersectObjects(handles, false)
+        
+        if (handleIntersects.length > 0) {
+          event.preventDefault()
+          const handle = handleIntersects[0].object as THREE.Mesh
+          const worldPos = handleIntersects[0].point
+          
+          resizeHandlesRef.current.startResize(handle, new THREE.Vector2(worldPos.x, worldPos.y))
+          setIsResizing(true)
+          return
+        }
+      }
+      
+      // Check if clicking on the SVG
+      if (currentSVGGroupRef.current) {
+        const svgObjects: THREE.Object3D[] = []
+        currentSVGGroupRef.current.traverse((child) => {
+          if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+            svgObjects.push(child)
+          }
+        })
+        
+        const svgIntersects = raycasterRef.current.intersectObjects(svgObjects, false)
+        
+        if (svgIntersects.length > 0) {
+          // Select the SVG and show resize handles
+          if (!isSelectedRef.current) {
+            resizeHandlesRef.current.attachToGroup(currentSVGGroupRef.current)
+            
+            // Add bounding box to scene
+            const boundingBoxLines = resizeHandlesRef.current.getBoundingBoxLines()
+            if (boundingBoxLines) {
+              sceneManagerRef.current.handleGroup.add(boundingBoxLines)
+            }
+            
+            setIsSelected(true)
+          }
+        } else {
+          // Clicked outside - deselect
+          if (isSelectedRef.current && !isResizingRef.current) {
+            resizeHandlesRef.current.detach()
+            
+            // Remove bounding box from scene
+            const boundingBoxLines = resizeHandlesRef.current.getBoundingBoxLines()
+            if (boundingBoxLines && boundingBoxLines.parent) {
+              sceneManagerRef.current.handleGroup.remove(boundingBoxLines)
+            }
+            
+            setIsSelected(false)
+          }
+        }
+      }
+    }
+    
+    // Right click for pan
+    if (event.button === 2) {
+      event.preventDefault()
+      isPanningRef.current = true
+      panStartRef.current = { x: event.clientX, y: event.clientY }
+    }
+  }, [])
+
+  const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!sceneManagerRef.current) return
+    
+    const canvas = sceneManagerRef.current.renderer.domElement
+    const rect = canvas.getBoundingClientRect()
+    mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+    mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    
+    // Handle resize dragging
+    if (isResizingRef.current && resizeHandlesRef.current) {
+      // Create a plane at z=0 for raycasting
+      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
+      raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+      
+      // Get intersection with the plane
+      const worldPos = new THREE.Vector3()
+      raycasterRef.current.ray.intersectPlane(plane, worldPos)
+      
+      // Update resize with shift key for aspect ratio
+      resizeHandlesRef.current.updateResize(
+        new THREE.Vector2(worldPos.x, worldPos.y),
+        !event.shiftKey // Maintain aspect ratio unless shift is held
+      )
+      return
+    }
+    
+    // Handle panning
+    if (isPanningRef.current && sceneManagerRef.current) {
+      const deltaX = event.clientX - panStartRef.current.x
+      const deltaY = event.clientY - panStartRef.current.y
+      
+      sceneManagerRef.current.updatePan(deltaX, deltaY)
+      
+      // Update pan start position for next frame
+      panStartRef.current = { x: event.clientX, y: event.clientY }
+      return
+    }
+    
+    // Highlight resize handles on hover (only if selected)
+    if (isSelectedRef.current && resizeHandlesRef.current && !isResizingRef.current && !isPanningRef.current) {
+      raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
+      const handles = resizeHandlesRef.current.getHandles()
+      const intersects = raycasterRef.current.intersectObjects(handles, false)
+      
+      if (intersects.length > 0) {
+        const handle = intersects[0].object as THREE.Mesh
+        resizeHandlesRef.current.highlightHandle(handle)
+        canvas.style.cursor = resizeHandlesRef.current.getActiveHandleCursor() || 'pointer'
+      } else {
+        resizeHandlesRef.current.highlightHandle(null)
+        canvas.style.cursor = 'default'
+      }
+    }
+  }, [])
+
+  const handleMouseUp = useCallback(() => {
+    isPanningRef.current = false
+    
+    if (isResizingRef.current && resizeHandlesRef.current) {
+      resizeHandlesRef.current.endResize()
+      setIsResizing(false)
+      const canvas = sceneManagerRef.current?.renderer.domElement
+      if (canvas) canvas.style.cursor = 'default'
+    }
+  }, [])
+
   // Initialize scene
   useEffect(() => {
     if (!canvasRef.current) return
@@ -57,148 +214,6 @@ function App() {
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault()
       sceneManager.updateZoom(event.deltaY)
-    }
-    
-    // Mouse pan handlers
-    const handleMouseDown = (event: MouseEvent) => {
-      if (!sceneManagerRef.current || !resizeHandlesRef.current) return
-      
-      // Update mouse position
-      const rect = canvas.getBoundingClientRect()
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-      
-      // Check for left click
-      if (event.button === 0) {
-        raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
-        
-        // First check if clicking on resize handles (if selected)
-        if (isSelected) {
-          const handles = resizeHandlesRef.current.getHandles()
-          const handleIntersects = raycasterRef.current.intersectObjects(handles)
-          
-          if (handleIntersects.length > 0) {
-            event.preventDefault()
-            const handle = handleIntersects[0].object as THREE.Mesh
-            const worldPos = handleIntersects[0].point
-            
-            resizeHandlesRef.current.startResize(handle, new THREE.Vector2(worldPos.x, worldPos.y))
-            setIsResizing(true)
-            return
-          }
-        }
-        
-        // Check if clicking on the SVG
-        if (currentSVGGroupRef.current) {
-          const svgObjects: THREE.Object3D[] = []
-          currentSVGGroupRef.current.traverse((child) => {
-            if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
-              svgObjects.push(child)
-            }
-          })
-          
-          const svgIntersects = raycasterRef.current.intersectObjects(svgObjects)
-          
-          if (svgIntersects.length > 0) {
-            // Select the SVG and show resize handles
-            if (!isSelected) {
-              resizeHandlesRef.current.attachToGroup(currentSVGGroupRef.current)
-              
-              // Add bounding box to scene
-              const boundingBoxLines = resizeHandlesRef.current.getBoundingBoxLines()
-              if (boundingBoxLines) {
-                sceneManagerRef.current.handleGroup.add(boundingBoxLines)
-              }
-              
-              setIsSelected(true)
-            }
-          } else {
-            // Clicked outside - deselect
-            if (isSelected && !isResizing) {
-              resizeHandlesRef.current.detach()
-              
-              // Remove bounding box from scene
-              const boundingBoxLines = resizeHandlesRef.current.getBoundingBoxLines()
-              if (boundingBoxLines && boundingBoxLines.parent) {
-                sceneManagerRef.current.handleGroup.remove(boundingBoxLines)
-              }
-              
-              setIsSelected(false)
-            }
-          }
-        }
-      }
-      
-      // Right click for pan
-      if (event.button === 2) {
-        event.preventDefault()
-        isPanningRef.current = true
-        panStartRef.current = { x: event.clientX, y: event.clientY }
-      }
-    }
-    
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!sceneManagerRef.current) return
-      
-      const rect = canvas.getBoundingClientRect()
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-      
-      // Handle resize dragging
-      if (isResizing && resizeHandlesRef.current) {
-        // Create a plane at z=0 for raycasting
-        const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
-        raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
-        
-        // Get intersection with the plane
-        const worldPos = new THREE.Vector3()
-        raycasterRef.current.ray.intersectPlane(plane, worldPos)
-        
-        // Update resize with shift key for aspect ratio
-        resizeHandlesRef.current.updateResize(
-          new THREE.Vector2(worldPos.x, worldPos.y),
-          !event.shiftKey // Maintain aspect ratio unless shift is held
-        )
-        return
-      }
-      
-      // Handle panning
-      if (isPanningRef.current && sceneManagerRef.current) {
-        const deltaX = event.clientX - panStartRef.current.x
-        const deltaY = event.clientY - panStartRef.current.y
-        
-        sceneManagerRef.current.updatePan(deltaX, deltaY)
-        
-        // Update pan start position for next frame
-        panStartRef.current = { x: event.clientX, y: event.clientY }
-        return
-      }
-      
-      // Highlight resize handles on hover (only if selected)
-      if (isSelected && resizeHandlesRef.current && !isResizing && !isPanningRef.current) {
-        raycasterRef.current.setFromCamera(mouseRef.current, sceneManagerRef.current.camera)
-        const handles = resizeHandlesRef.current.getHandles()
-        const intersects = raycasterRef.current.intersectObjects(handles)
-        
-        if (intersects.length > 0) {
-          const handle = intersects[0].object as THREE.Mesh
-          resizeHandlesRef.current.highlightHandle(handle)
-          canvas.style.cursor = resizeHandlesRef.current.getActiveHandleCursor() || 'pointer'
-        } else {
-          resizeHandlesRef.current.highlightHandle(null)
-          canvas.style.cursor = 'default'
-        }
-      }
-    }
-    
-    const handleMouseUp = () => {
-      isPanningRef.current = false
-      
-      if (isResizing && resizeHandlesRef.current) {
-        resizeHandlesRef.current.endResize()
-        setIsResizing(false)
-        canvas.style.cursor = 'default'
-      }
     }
     
     // Prevent context menu on right click
@@ -241,7 +256,7 @@ function App() {
       
       sceneManager.dispose()
     }
-  }, [])
+  }, [handleMouseDown, handleMouseMove, handleMouseUp])
 
   // Drag and drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {

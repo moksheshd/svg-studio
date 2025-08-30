@@ -8,7 +8,7 @@ export interface ResizeHandle {
 
 export class ResizeHandles {
   private handles: ResizeHandle[] = []
-  private handleSize = 0.15
+  private handleSize = 0.3  // Increased size for easier clicking
   private activeHandle: ResizeHandle | null = null
   private boundingBox: THREE.Box3 | null = null
   private targetGroup: THREE.Group | null = null
@@ -22,11 +22,12 @@ export class ResizeHandles {
   }
 
   private createHandles(): void {
-    const geometry = new THREE.BoxGeometry(this.handleSize, this.handleSize, 0.1)
+    const geometry = new THREE.BoxGeometry(this.handleSize, this.handleSize, 0.2)
     const material = new THREE.MeshBasicMaterial({ 
       color: 0x4a90e2,
-      transparent: true,
-      opacity: 1
+      transparent: false,
+      depthTest: false,  // Always render on top
+      depthWrite: false
     })
 
     const positions: Array<{ pos: 'nw' | 'ne' | 'se' | 'sw', cursor: string }> = [
@@ -95,7 +96,8 @@ export class ResizeHandles {
     
     this.targetGroup = group
     
-    // Calculate bounding box
+    // Calculate and store the bounding box once
+    // This will be used throughout the resize operation
     this.boundingBox = new THREE.Box3().setFromObject(group)
     
     // Calculate aspect ratio
@@ -103,7 +105,7 @@ export class ResizeHandles {
     this.boundingBox.getSize(size)
     this.aspectRatio = size.x / size.y
     
-    // Store original scale
+    // Store the current scale (including any existing transforms like Y-flip)
     this.originalScale.copy(group.scale)
     
     // Create bounding box visualization
@@ -160,7 +162,7 @@ export class ResizeHandles {
           break
       }
       
-      handle.mesh.position.set(x, y, 0.5)
+      handle.mesh.position.set(x, y, 1)  // Higher Z to ensure it's in front
     })
     
     // Update bounding box lines
@@ -195,60 +197,97 @@ export class ResizeHandles {
     const resizeHandle = this.handles.find(h => h.mesh === handle)
     if (!resizeHandle || !this.targetGroup) return
     
+    console.log('Starting resize with handle:', resizeHandle.position, 'at position:', mousePos)
     this.activeHandle = resizeHandle
     this.originalMousePos.copy(mousePos)
+    
+    // IMPORTANT: Store the CURRENT scale, not reset it
+    // The SVG already has scale.y = -1 from the initial flip
     this.originalScale.copy(this.targetGroup.scale)
+    
+    // Don't recalculate bounding box here - use the one from attachToGroup
+    // This prevents the flip issue
   }
 
   public updateResize(mousePos: THREE.Vector2, maintainAspectRatio: boolean = true): void {
     if (!this.activeHandle || !this.targetGroup || !this.boundingBox) return
     
-    const delta = new THREE.Vector2().subVectors(mousePos, this.originalMousePos)
+    // Simple delta-based resize
+    const deltaX = mousePos.x - this.originalMousePos.x
+    const deltaY = mousePos.y - this.originalMousePos.y
+    
+    // Get the size of the original bounding box
     const size = new THREE.Vector3()
     this.boundingBox.getSize(size)
     
-    // Scale the delta based on the original scale to make resizing more intuitive
-    const scaleFactor = 2.0 // Adjust this to control resize sensitivity
+    // Sensitivity factor for resize
+    const sensitivity = 1.0
     
     let scaleX = this.originalScale.x
     let scaleY = this.originalScale.y
     
-    // Calculate scale change based on handle position
-    switch (this.activeHandle.position) {
-      case 'nw':
-        scaleX = this.originalScale.x * (1 - (delta.x * scaleFactor / size.x))
-        scaleY = this.originalScale.y * (1 + (delta.y * scaleFactor / size.y))
-        break
-      case 'ne':
-        scaleX = this.originalScale.x * (1 + (delta.x * scaleFactor / size.x))
-        scaleY = this.originalScale.y * (1 + (delta.y * scaleFactor / size.y))
-        break
-      case 'se':
-        scaleX = this.originalScale.x * (1 + (delta.x * scaleFactor / size.x))
-        scaleY = this.originalScale.y * (1 - (delta.y * scaleFactor / size.y))
-        break
-      case 'sw':
-        scaleX = this.originalScale.x * (1 - (delta.x * scaleFactor / size.x))
-        scaleY = this.originalScale.y * (1 - (delta.y * scaleFactor / size.y))
-        break
-    }
-    
-    // Maintain aspect ratio if needed
     if (maintainAspectRatio) {
-      // Calculate the average scale factor
-      const scaleFactorX = scaleX / this.originalScale.x
-      const scaleFactorY = scaleY / this.originalScale.y
+      // For aspect ratio, use diagonal movement
+      let scaleDelta = 0
       
-      // Use the larger scale factor to maintain aspect ratio
-      const uniformScale = Math.max(scaleFactorX, scaleFactorY)
+      switch (this.activeHandle.position) {
+        case 'se': // Bottom-right: positive X and negative Y increase size
+          scaleDelta = (deltaX - deltaY) * sensitivity / Math.max(size.x, size.y)
+          break
+        case 'nw': // Top-left: negative X and positive Y increase size
+          scaleDelta = (-deltaX + deltaY) * sensitivity / Math.max(size.x, size.y)
+          break
+        case 'ne': // Top-right: positive X and positive Y increase size
+          scaleDelta = (deltaX + deltaY) * sensitivity / Math.max(size.x, size.y)
+          break
+        case 'sw': // Bottom-left: negative X and negative Y increase size
+          scaleDelta = (-deltaX - deltaY) * sensitivity / Math.max(size.x, size.y)
+          break
+      }
       
-      scaleX = this.originalScale.x * uniformScale
-      scaleY = this.originalScale.y * uniformScale
+      // Apply scale delta to both axes, preserving the sign of the original scale
+      // This is crucial for maintaining the Y-flip from SVG import
+      const absScaleX = Math.abs(this.originalScale.x) * (1 + scaleDelta)
+      const absScaleY = Math.abs(this.originalScale.y) * (1 + scaleDelta)
+      
+      scaleX = absScaleX * Math.sign(this.originalScale.x)
+      scaleY = absScaleY * Math.sign(this.originalScale.y)
+    } else {
+      // Free resize - each axis independently
+      let scaleFactorX = 1
+      let scaleFactorY = 1
+      
+      switch (this.activeHandle.position) {
+        case 'se':
+          scaleFactorX = 1 + deltaX * sensitivity / size.x
+          scaleFactorY = 1 - deltaY * sensitivity / size.y
+          break
+        case 'nw':
+          scaleFactorX = 1 - deltaX * sensitivity / size.x
+          scaleFactorY = 1 + deltaY * sensitivity / size.y
+          break
+        case 'ne':
+          scaleFactorX = 1 + deltaX * sensitivity / size.x
+          scaleFactorY = 1 + deltaY * sensitivity / size.y
+          break
+        case 'sw':
+          scaleFactorX = 1 - deltaX * sensitivity / size.x
+          scaleFactorY = 1 - deltaY * sensitivity / size.y
+          break
+      }
+      
+      // Apply scale factors while preserving the sign (for Y-flip)
+      scaleX = Math.abs(this.originalScale.x) * scaleFactorX * Math.sign(this.originalScale.x)
+      scaleY = Math.abs(this.originalScale.y) * scaleFactorY * Math.sign(this.originalScale.y)
     }
     
-    // Apply minimum and maximum scale limits
-    scaleX = Math.max(0.1, Math.min(10, scaleX))
-    scaleY = Math.max(0.1, Math.min(10, scaleY))
+    // Apply minimum and maximum scale limits (to absolute values)
+    const absScaleX = Math.max(0.1, Math.min(10, Math.abs(scaleX)))
+    const absScaleY = Math.max(0.1, Math.min(10, Math.abs(scaleY)))
+    
+    // Restore the sign
+    scaleX = absScaleX * Math.sign(this.originalScale.x)
+    scaleY = absScaleY * Math.sign(this.originalScale.y)
     
     // Apply the scale
     this.targetGroup.scale.set(scaleX, scaleY, 1)
